@@ -1,40 +1,61 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
 import base64
 import xml.etree.ElementTree as ET
-import Image
-from StringIO import StringIO
-import urllib
+from PIL import Image
+from io import BytesIO
+from urllib.request import url2pathname
 
-if len(sys.argv) < 2:
-	print('Not enough actual parameters')
-	sys.exit(1)
+def saveCover(cover_raw, outputFile, size):
+    cover_decoded = base64.b64decode(cover_raw)
+    cover = Image.open(BytesIO(cover_decoded))
+    cover.thumbnail((size, size), Image.BILINEAR)
+    cover.save(outputFile,"PNG")
 
-inputFile = sys.argv[1]
-outputFile = sys.argv[2]
-if len(sys.argv) > 2:
-	size = int(sys.argv[3])
-else:
-	size = 256
+def getCoverId(root):
+    cover_page = root.find('.//description/title-info/coverpage/image')
+    if not cover_page:
+        cover_page = root.find('.//{*}description/{*}title-info/{*}coverpage/{*}image')
+        cover_id = None
+        if not cover_page.attrib:
+            return None
+        for k, v in cover_page.attrib.items():
+            if v and len(v) > 0 and k.endswith('href'):
+                cover_id = v[1:]
+                break
+        return cover_id
 
-iFile = open(urllib.url2pathname(inputFile).split('file://')[1],'r')
-root = ET.parse(iFile).getroot()
+def main():
+    if len(sys.argv) < 3:
+        print('Not enough actual parameters')
+        return
+    inputFile = sys.argv[1]
+    outputFile = sys.argv[2]
+    if len(sys.argv) > 3:
+        size = int(sys.argv[3])
+    else:
+        size = 256
+    inFile = open(url2pathname(inputFile).split('file://')[1], 'r')
+    root = ET.parse(inFile).getroot()
+    cover_id = getCoverId(root)
+    if cover_id:
+        for i in root.iter():
+            if (i.tag.split('}')[1] == 'binary') and ('id' in i.attrib) and (i.attrib['id'] == cover_id):
+                print(f"Found by coverpage = #{cover_id}")
+                saveCover(i.text, outputFile, size)
+                return
+    for i in root.iter():
+        if (i.tag.split('}')[1] == 'binary') and ('id' in i.attrib) and (i.attrib['id'].split('.')[0] == 'cover'):
+            print("Found by cover attribute")
+            saveCover(i.text, outputFile, size)
+            return
+    for i in root.iter():
+        if (i.tag.split('}')[1] == 'binary') and ('content-type' in i.attrib) and (i.attrib['content-type'].split('/')[0] == 'image'):
+            print("Found by image attribute")
+            saveCover(i.text, outputFile, size)
+            return
+    print('No cover inside')
 
-def saveCover(cover_raw):
-	cover_decoded = base64.decodestring(cover_raw)
-	cover = Image.open(StringIO(cover_decoded))
-	cover.thumbnail((size,size), Image.ANTIALIAS)
-	cover.save(outputFile,"PNG")
-	sys.exit(0)
-
-for i in root.iter():
-	if (i.tag.split('}')[1] == 'binary') and ('id' in i.attrib) and (i.attrib['id'].split('.')[0] == 'cover'):
-		saveCover(i.text)
-
-for i in root.iter():
-	if (i.tag.split('}')[1] == 'binary') and ('content-type' in i.attrib) and (i.attrib['content-type'].split('/')[0] == 'image'):
-		saveCover(i.text)
-
-print('No cover inside')
-sys.exit(2)
+if __name__ == '__main__':
+    main()
