@@ -36,7 +36,7 @@ def main():
         size = int(sys.argv[3])
     else:
         size = 256
-    inFile = open(url2pathname(inputFile).split('file://')[1], 'r')
+    inFile = url2pathname(inputFile).split('file://')[1]
     root = ET.parse(inFile).getroot()
     cover_id = getCoverId(root)
     if cover_id:
