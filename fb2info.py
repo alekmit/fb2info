@@ -65,8 +65,9 @@ def main():
         size = int(sys.argv[3])
     else:
         size = 256
-    inFile = url2pathname(inputFile).split('file://')[1]
-    root = ET.parse(inFile).getroot()
+    if (inputFile.startswith('file://')):
+        inputFile = url2pathname(inputFile).split('file://')[1]
+    root = ET.parse(inputFile).getroot()
     cover_id = getCoverId(root)
     if cover_id:
         for i in root.iter():
