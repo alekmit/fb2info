@@ -8,10 +8,15 @@ from io import BytesIO
 from urllib.request import url2pathname
 
 def saveCover(cover_raw, outputFile, size):
-    cover_decoded = base64.b64decode(cover_raw)
-    cover = Image.open(BytesIO(cover_decoded))
-    cover.thumbnail((size, size), Image.BILINEAR)
-    cover.save(outputFile,"PNG")
+    try:
+        cover_decoded = base64.b64decode(cover_raw)
+        cover = Image.open(BytesIO(cover_decoded))
+        cover.thumbnail((size, size), Image.BILINEAR)
+        cover.save(outputFile,"PNG")
+    except Exception as e:
+        print(e)
+        return False
+    return True
 
 def getCoverId(root):
     cover_page = root.find('.//description/title-info/coverpage/image')
@@ -31,16 +36,18 @@ def getCoverId(root):
     return cover_id
 
 def try_without_cover_id(root, outputFile, size):
+    # a worse case
     for i in root.iter():
         if (i.tag.split('}')[1] == 'binary') and ('id' in i.attrib) and (i.attrib['id'].split('.')[0] == 'cover'):
             print("Found by cover attribute")
-            saveCover(i.text, outputFile, size)
-            return True
+            if saveCover(i.text, outputFile, size):
+                return True
+    # the worst case. trying to find anything
     for i in root.iter():
         if (i.tag.split('}')[1] == 'binary') and ('content-type' in i.attrib) and (i.attrib['content-type'].split('/')[0] == 'image'):
-            print("Found by image attribute")
-            saveCover(i.text, outputFile, size)
-            return True
+            print("Found by image type")
+            if saveCover(i.text, outputFile, size):
+                return True
     return False
 
 def main():
@@ -60,8 +67,8 @@ def main():
         for i in root.iter():
             if (i.tag.split('}')[1] == 'binary') and ('id' in i.attrib) and (i.attrib['id'] == cover_id):
                 print(f"Found by coverpage = #{cover_id}")
-                saveCover(i.text, outputFile, size)
-                return
+                if saveCover(i.text, outputFile, size):
+                    return
     if not try_without_cover_id(root, outputFile, size):
         print('No cover inside')
 
