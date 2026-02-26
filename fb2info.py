@@ -26,9 +26,9 @@ def getCoverId(root):
         cover_page = root.find('.//body/image')
     if cover_page is None:
         cover_page = root.find('.//{*}body/{*}image')
-    cover_id = None
-    if not cover_page.attrib:
+    if cover_page is None or cover_page.attrib is None:
         return None
+    cover_id = None
     for k, v in cover_page.attrib.items():
         if v and len(v) > 0 and k.endswith('href'):
             cover_id = v[1:]
@@ -45,6 +45,11 @@ def try_without_cover_id(root, outputFile, size):
     # the worst case. trying to find anything
     for i in root.iter():
         if (i.tag.split('}')[1] == 'binary') and ('content-type' in i.attrib) and (i.attrib['content-type'].split('/')[0] == 'image'):
+            print("Found by image type")
+            if saveCover(i.text, outputFile, size):
+                return True
+    for i in root.iter():
+        if (i.tag.split('}')[1] == 'binary') and ('content-type' in i.attrib) and (i.attrib['id'].split('.')[1].lower() in ['jpg', 'png']):
             print("Found by image type")
             if saveCover(i.text, outputFile, size):
                 return True
