@@ -15,16 +15,33 @@ def saveCover(cover_raw, outputFile, size):
 
 def getCoverId(root):
     cover_page = root.find('.//description/title-info/coverpage/image')
-    if not cover_page:
+    if cover_page is None:
         cover_page = root.find('.//{*}description/{*}title-info/{*}coverpage/{*}image')
-        cover_id = None
-        if not cover_page.attrib:
-            return None
-        for k, v in cover_page.attrib.items():
-            if v and len(v) > 0 and k.endswith('href'):
-                cover_id = v[1:]
-                break
-        return cover_id
+    if cover_page is None:
+        cover_page = root.find('.//body/image')
+    if cover_page is None:
+        cover_page = root.find('.//{*}body/{*}image')
+    cover_id = None
+    if not cover_page.attrib:
+        return None
+    for k, v in cover_page.attrib.items():
+        if v and len(v) > 0 and k.endswith('href'):
+            cover_id = v[1:]
+            break
+    return cover_id
+
+def try_without_cover_id(root, outputFile, size):
+    for i in root.iter():
+        if (i.tag.split('}')[1] == 'binary') and ('id' in i.attrib) and (i.attrib['id'].split('.')[0] == 'cover'):
+            print("Found by cover attribute")
+            saveCover(i.text, outputFile, size)
+            return True
+    for i in root.iter():
+        if (i.tag.split('}')[1] == 'binary') and ('content-type' in i.attrib) and (i.attrib['content-type'].split('/')[0] == 'image'):
+            print("Found by image attribute")
+            saveCover(i.text, outputFile, size)
+            return True
+    return False
 
 def main():
     if len(sys.argv) < 3:
@@ -45,17 +62,8 @@ def main():
                 print(f"Found by coverpage = #{cover_id}")
                 saveCover(i.text, outputFile, size)
                 return
-    for i in root.iter():
-        if (i.tag.split('}')[1] == 'binary') and ('id' in i.attrib) and (i.attrib['id'].split('.')[0] == 'cover'):
-            print("Found by cover attribute")
-            saveCover(i.text, outputFile, size)
-            return
-    for i in root.iter():
-        if (i.tag.split('}')[1] == 'binary') and ('content-type' in i.attrib) and (i.attrib['content-type'].split('/')[0] == 'image'):
-            print("Found by image attribute")
-            saveCover(i.text, outputFile, size)
-            return
-    print('No cover inside')
+    if not try_without_cover_id(root, outputFile, size):
+        print('No cover inside')
 
 if __name__ == '__main__':
     main()
